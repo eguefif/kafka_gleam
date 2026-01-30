@@ -17,13 +17,13 @@ pub fn main() {
   io.println("Logs from your program will appear here!")
 
   // TODO: Uncomment the code below to pass the first stage
-  //
-  // let assert Ok(_) =
-  //   glisten.handler(fn(_conn) { #(Nil, None) }, fn(_msg, state, _conn) {
-  //     io.println("Received message!")
-  //     actor.continue(state)
-  //   })
-  //   |> glisten.serve(9092)
-  //
-  // process.sleep_forever()
+  
+   let assert Ok(_) =
+     glisten.handler(fn(_conn) { #(Nil, None) }, fn(_msg, state, _conn) {
+       io.println("Received message!")
+       actor.continue(state)
+     })
+     |> glisten.serve(9092)
+  
+   process.sleep_forever()
 }
