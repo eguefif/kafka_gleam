@@ -16,8 +16,8 @@ pub fn main() {
     glisten.new(fn(_conn) { #(Nil, None) }, fn(state, msg, conn) {
       io.println("Received message!")
       let assert Packet(msg) = msg
-      process_message(msg)
-      send_response(conn)
+      let assert Ok(correlation_id) = process_message(msg)
+      send_response(conn, correlation_id)
       glisten.continue(state)
     })
     |> glisten.start(9092)
@@ -25,18 +25,18 @@ pub fn main() {
   process.sleep_forever()
 }
 
-fn process_message(bytes: BitArray) {
-  case bit_array.to_string(bytes) {
-    Ok(message) -> io.println("New message: " <> message)
-    Error(Nil) -> io.println_error("Impossible to transform bytes into string")
+fn process_message(bytes: BitArray) -> Result(Int, Nil) {
+  case bytes {
+    <<_:32, _:16, _:16, correlation_id:32, _:bits>> -> Ok(correlation_id)
+    _ -> Error(Nil)
   }
 }
 
-fn send_response(conn: glisten.Connection(user_message)) {
+fn send_response(conn: glisten.Connection(user_message), correlation_id: Int) {
   let message =
     bytes_tree.append(
       bytes_tree.new(),
-      bit_array.append(<<32:size(32)>>, <<7:size(32)>>),
+      bit_array.append(<<64:size(32)>>, <<correlation_id:size(32)>>),
     )
   case glisten.send(conn, message) {
     Ok(Nil) -> io.println("Response sent")
