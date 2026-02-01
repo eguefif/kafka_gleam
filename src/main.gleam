@@ -1,13 +1,13 @@
+import gleam/bytes_tree.{type BytesTree}
 import gleam/io
 
-import gleam/bit_array
-import gleam/bytes_tree
 import gleam/erlang/process
 import gleam/option.{None}
 import glisten.{Packet}
 
 import internals/api_version_response.{get_api_version_response}
-import internals/process_request.{type Request, HeaderV2, process_message}
+import internals/kpacket.{type KPacket, HeaderV2}
+import internals/process_request.{process_request}
 
 pub fn main() {
   // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -17,8 +17,8 @@ pub fn main() {
     glisten.new(fn(_conn) { #(Nil, None) }, fn(state, msg, conn) {
       io.println("Received message!")
       let assert Packet(msg) = msg
-      let assert Ok(message) = process_message(msg)
-      send_response(conn, message)
+      let assert Ok(request) = process_request(msg)
+      send_response(conn, request)
       glisten.continue(state)
     })
     |> glisten.start(9092)
@@ -28,30 +28,11 @@ pub fn main() {
 
 fn send_response(
   conn: glisten.Connection(user_message),
-  rcv_message: Request,
+  request: KPacket,
 ) -> Nil {
-  let to_send_message = case rcv_message {
-    HeaderV2(
-      _size,
-      _request_api_key,
-      request_api_version,
-      correlation_id,
-      _body,
-    ) -> {
-      case request_api_version {
-        1 | 2 | 3 | 4 -> {
-          bytes_tree.append(
-            bytes_tree.new(),
-            get_api_version_response(correlation_id),
-          )
-        }
-        _ -> {
-          bytes_tree.append(
-            bytes_tree.new(),
-            bit_array.append(<<64:32>>, <<correlation_id:32, 35:16>>),
-          )
-        }
-      }
+  let to_send_message = case request {
+    HeaderV2(..) -> {
+      handle_header_v2(request)
     }
   }
 
@@ -59,4 +40,16 @@ fn send_response(
     Ok(Nil) -> io.println("Response sent")
     Error(_) -> io.println("Error")
   }
+}
+
+fn handle_header_v2(request: KPacket) -> BytesTree {
+  let HeaderV2(_, request_api_key, ..) = request
+  case request_api_key {
+    18 -> get_api_version_response(request)
+    _ -> get_not_implemented_api_key()
+  }
+}
+
+fn get_not_implemented_api_key() -> BytesTree {
+  bytes_tree.from_bit_array(<<>>)
 }

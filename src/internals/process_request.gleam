@@ -1,22 +1,8 @@
 import gleam/bit_array
 import gleam/result
+import internals/kpacket.{type Body, type KPacket, ApiRequestV4, HeaderV2, None}
 
-pub type Request {
-  HeaderV2(
-    size: Int,
-    request_api_key: Int,
-    request_api_version: Int,
-    correlation_id: Int,
-    body: Body,
-  )
-}
-
-pub type Body {
-  ApiRequestV4(client_software_name: String, client_software_version: String)
-  None
-}
-
-pub fn process_message(bytes: BitArray) -> Result(Request, Nil) {
+pub fn process_request(bytes: BitArray) -> Result(KPacket, Nil) {
   case bytes {
     <<
       size:32,
