@@ -18,7 +18,8 @@ pub fn main() {
       io.println("Received message!")
       let assert Packet(msg) = msg
       let assert Ok(request) = process_request(msg)
-      send_response(conn, request)
+      let response = build_response(request)
+      send_response(conn, response)
       glisten.continue(state)
     })
     |> glisten.start(9092)
@@ -26,24 +27,17 @@ pub fn main() {
   process.sleep_forever()
 }
 
-fn send_response(
-  conn: glisten.Connection(user_message),
-  request: KPacket,
-) -> Nil {
-  let to_send_message = case request {
+fn build_response(request: KPacket) -> BytesTree {
+  case request {
     HeaderV2(..) -> {
       handle_header_v2(request)
     }
-  }
-
-  case glisten.send(conn, to_send_message) {
-    Ok(Nil) -> io.println("Response sent")
-    Error(_) -> io.println("Error")
+    _ -> get_not_implemented_api_key()
   }
 }
 
 fn handle_header_v2(request: KPacket) -> BytesTree {
-  let HeaderV2(_, request_api_key, ..) = request
+  let assert HeaderV2(_, request_api_key, ..) = request
   case request_api_key {
     18 -> get_api_version_response(request)
     _ -> get_not_implemented_api_key()
@@ -51,5 +45,16 @@ fn handle_header_v2(request: KPacket) -> BytesTree {
 }
 
 fn get_not_implemented_api_key() -> BytesTree {
+  echo "test"
   bytes_tree.from_bit_array(<<>>)
+}
+
+fn send_response(
+  conn: glisten.Connection(user_message),
+  response: BytesTree,
+) -> Nil {
+  case glisten.send(conn, response) {
+    Ok(Nil) -> io.println("Response sent")
+    Error(_) -> io.println("Error")
+  }
 }
