@@ -31,7 +31,6 @@ pub fn process_request(bytes: BitArray) -> Result(KPacket, Nil) {
         correlation_id:,
         client_id:,
         tagged_fields:,
-        error: 0,
         body:,
       ))
     }

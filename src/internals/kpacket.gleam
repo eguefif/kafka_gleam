@@ -1,8 +1,9 @@
+import gleam/list
+
 pub type KPacket {
-  HeaderV0(body: Body, error: Int, correlation_id: Int)
+  HeaderV0(body: Body, correlation_id: Int)
   HeaderV2(
     body: Body,
-    error: Int,
     size: Int,
     request_api_key: Int,
     request_api_version: Int,
@@ -31,7 +32,7 @@ pub fn to_bitarray(packet: KPacket) -> BitArray {
 
 fn header_to_bitarray(header: KPacket) -> BitArray {
   case header {
-    HeaderV0(_, _, correlation_id) -> <<correlation_id:int-big-size(32)>>
+    HeaderV0(_, correlation_id) -> <<correlation_id:int-big-size(32)>>
     _ -> {
       <<>>
     }
@@ -41,8 +42,10 @@ fn header_to_bitarray(header: KPacket) -> BitArray {
 fn body_to_bitarray(body: Body) -> BitArray {
   case body {
     ApiResponseV4(api_keys, throttle, tag_buffer) -> <<
+      0:int-big-size(16),
+      { list.length(api_keys) + 1 }:int-big-size(8),
       api_keys_list_to_bitarray(api_keys):bits,
-      throttle:int-big-size(16),
+      throttle:int-big-size(32),
       tag_buffer:int-big-size(8),
     >>
     ResponseError(code) -> <<code:int-big-size(16)>>
