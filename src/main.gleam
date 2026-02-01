@@ -6,14 +6,8 @@ import gleam/erlang/process
 import gleam/option.{None}
 import glisten.{Packet}
 
-pub type Message {
-  HeaderV1(
-    size: Int,
-    request_api_key: Int,
-    request_api_version: Int,
-    correlation_id: Int,
-  )
-}
+import internals/api_version_response.{get_api_version_response}
+import internals/process_request.{type Request, HeaderV2, process_message}
 
 pub fn main() {
   // You can use print statements as follows for debugging, they'll be visible when running tests.
@@ -34,29 +28,23 @@ pub fn main() {
   process.sleep_forever()
 }
 
-fn process_message(bytes: BitArray) -> Result(Message, Nil) {
-  case bytes {
-    <<
-      size:32,
-      request_api_key:16,
-      request_api_version:16,
-      correlation_id:32,
-      _:bits,
-    >> -> {
-      Ok(HeaderV1(size, request_api_key, request_api_version, correlation_id))
-    }
-    _ -> Error(Nil)
-  }
-}
-
-fn send_response(conn: glisten.Connection(user_message), rcv_message: Message) {
+fn send_response(
+  conn: glisten.Connection(user_message),
+  rcv_message: Request,
+) -> Nil {
   let to_send_message = case rcv_message {
-    HeaderV1(_size, _request_api_key, request_api_version, correlation_id) -> {
+    HeaderV2(
+      _size,
+      _request_api_key,
+      request_api_version,
+      correlation_id,
+      _body,
+    ) -> {
       case request_api_version {
         1 | 2 | 3 | 4 -> {
           bytes_tree.append(
             bytes_tree.new(),
-            bit_array.append(<<64:size(32)>>, <<correlation_id:size(32)>>),
+            get_api_version_response(correlation_id),
           )
         }
         _ -> {
