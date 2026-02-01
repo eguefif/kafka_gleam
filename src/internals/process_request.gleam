@@ -1,5 +1,4 @@
 import gleam/bit_array
-import gleam/int
 import gleam/result
 
 pub type Request {
@@ -14,6 +13,7 @@ pub type Request {
 
 pub type Body {
   ApiRequestV4(client_software_name: String, client_software_version: String)
+  None
 }
 
 pub fn process_message(bytes: BitArray) -> Result(Request, Nil) {
@@ -30,11 +30,11 @@ pub fn process_message(bytes: BitArray) -> Result(Request, Nil) {
           result.unwrap(
             get_body(rest),
             ApiRequestV4(
-              client_software_name: todo,
-              client_software_version: todo,
+              client_software_name: "Hello",
+              client_software_version: "World",
             ),
           )
-        _ -> todo
+        _ -> None
       }
       Ok(HeaderV2(
         size,
@@ -48,26 +48,25 @@ pub fn process_message(bytes: BitArray) -> Result(Request, Nil) {
   }
 }
 
-fn get_body(_bytes: BitArray) -> Result(Body, Nil) {
-  Ok(ApiRequestV4(
-    client_software_name: "hello",
-    client_software_version: "world",
-  ))
-  //let (client_software_name, rest) = read_compact_string(bytes)
-  //let (client_software_name, rest) = read_compact_string(rest)
+fn get_body(bytes: BitArray) -> Result(Body, Nil) {
+  let assert #(Ok(client_software_name), rest) = read_compact_string(bytes)
+  let assert #(Ok(client_software_version), _) = read_compact_string(rest)
+
+  Ok(ApiRequestV4(client_software_name:, client_software_version:))
 }
 
-//fn read_compact_string(bytes: BitArray) -> Tupple(Result(String, Nil), BitArray) {
-//  let Tupple(string_size, rest) = read_varint(bytes)
-//  let assert <<string_bytes:bytes, rest:bits>> =
-//    rest(Ok(bit_array.to_string(string_bytes), rest))
-//}
+pub fn read_compact_string(bytes: BitArray) -> #(Result(String, Nil), BitArray) {
+  let #(string_size, rest) = read_varint(bytes)
+  let assert <<raw_str:bytes-size(string_size), rest:bits>> = rest
+  let str = bit_array.to_string(raw_str)
+  #(str, rest)
+}
 
 pub fn read_varint(bytes: BitArray) -> #(Int, BitArray) {
   let #(varint, size) = read_varint_acc(bytes, 0)
   let assert <<varint:int-big-signed-size(size)>> = varint
-  let remaining_bits_size = size / 7
-  let assert <<_:size(remaining_bits_size), rest:bits>> = bytes
+  let varint_size = size / 7
+  let assert <<_:size(varint_size * 8), rest:bits>> = bytes
   #(varint, rest)
 }
 
@@ -77,11 +76,11 @@ fn read_varint_acc(bytes: BitArray, size: Int) -> #(BitArray, Int) {
       let #(acc, size) = read_varint_acc(rest, size + 7)
       #(<<acc:bits, number:7>>, size)
     }
-    <<0:1, number:7>> -> {
+    <<0:1, number:7, _:bits>> -> {
       #(<<number:7>>, size + 7)
     }
     _ -> {
-      #(<<>>, size)
+      panic as "Should never get there when decoding unsigned varint"
     }
   }
 }

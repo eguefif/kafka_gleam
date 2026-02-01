@@ -13,8 +13,6 @@ pub fn main() {
   // You can use print statements as follows for debugging, they'll be visible when running tests.
   io.println("Logs from your program will appear here!")
 
-  // TODO: Uncomment the code below to pass the first stage
-
   let assert Ok(_) =
     glisten.new(fn(_conn) { #(Nil, None) }, fn(state, msg, conn) {
       io.println("Received message!")
