@@ -22,6 +22,7 @@ pub type Body {
 
 pub type ApiKeys {
   ApiVersion(start: Int, end: Int, tag_buffer: Int)
+  DescribeTopicPartition(start: Int, end: Int, tag_buffer: Int)
 }
 
 pub fn to_bitarray(packet: KPacket) -> BitArray {
@@ -67,6 +68,13 @@ fn api_key_to_bitarray(api_key: ApiKeys) -> BitArray {
   case api_key {
     ApiVersion(start, end, tag_buffer) -> <<
       18:16,
+      start:int-big-size(16),
+      end:int-big-size(16),
+      tag_buffer:int-big-size(8),
+    >>
+
+    DescribeTopicPartition(start, end, tag_buffer) -> <<
+      75:16,
       start:int-big-size(16),
       end:int-big-size(16),
       tag_buffer:int-big-size(8),

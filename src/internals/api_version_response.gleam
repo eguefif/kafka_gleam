@@ -1,8 +1,8 @@
 import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
 import internals/kpacket.{
-  type Body, type KPacket, ApiResponseV4, ApiVersion, HeaderV0, HeaderV2, None,
-  ResponseError,
+  type Body, type KPacket, ApiResponseV4, ApiVersion, DescribeTopicPartition,
+  HeaderV0, HeaderV2, None, ResponseError,
 }
 
 pub fn get_api_version_response(request: KPacket) -> BytesTree {
@@ -34,6 +34,9 @@ pub fn get_body(request: KPacket) -> Body {
 }
 
 fn get_body_api_key() -> Body {
-  let api_keys = [ApiVersion(start: 0, end: 4, tag_buffer: 0)]
+  let api_keys = [
+    ApiVersion(start: 0, end: 4, tag_buffer: 0),
+    DescribeTopicPartition(start: 0, end: 0, tag_buffer: 0),
+  ]
   ApiResponseV4(api_keys:, throttle: 0, tag_buffer: 0)
 }
