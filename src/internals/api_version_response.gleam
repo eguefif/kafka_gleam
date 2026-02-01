@@ -26,7 +26,7 @@ fn get_header(request: KPacket) -> KPacket {
 }
 
 pub fn get_body(request: KPacket) -> Body {
-  let assert HeaderV2(_, _, _, _, _, request_api_version, ..) = request
+  let assert HeaderV2(_, _, _, _, request_api_version, ..) = request
   case request_api_version {
     1 | 2 | 3 | 4 -> {
       get_body_api_key()
@@ -38,6 +38,6 @@ pub fn get_body(request: KPacket) -> Body {
 }
 
 fn get_body_api_key() -> Body {
-  let api_keys = [ApiVersion(start: 0, end: 4)]
-  ApiResponseV4(api_keys:, throttle: 1000)
+  let api_keys = [ApiVersion(start: 0, end: 4, tag_buffer: 0)]
+  ApiResponseV4(api_keys:, throttle: 0, tag_buffer: 0)
 }

@@ -1,5 +1,4 @@
 import gleam/bit_array
-import gleam/int
 import gleam/result
 import internals/kpacket.{type Body, type KPacket, ApiRequestV4, HeaderV2, None}
 
@@ -57,7 +56,6 @@ fn read_nullable_string(bytes: BitArray) -> #(Result(String, Nil), BitArray) {
 pub fn read_compact_string(bytes: BitArray) -> #(Result(String, Nil), BitArray) {
   let #(string_size, rest) = read_varint(bytes)
   let assert <<raw_str:bytes-size(string_size - 1), rest:bits>> = rest
-  echo bit_array.base16_encode(raw_str)
   let str = bit_array.to_string(raw_str)
   #(str, rest)
 }
@@ -66,7 +64,6 @@ pub fn read_varint(bytes: BitArray) -> #(Int, BitArray) {
   let #(varint, size) = read_varint_acc(bytes, 0)
   let assert <<varint:int-big-signed-size(size)>> = varint
   let varint_size = size / 7
-  echo int.to_base16(varint)
   let assert <<_:size(varint_size * 8), rest:bits>> = bytes
   #(varint, rest)
 }

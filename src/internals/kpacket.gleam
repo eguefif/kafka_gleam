@@ -14,13 +14,13 @@ pub type KPacket {
 
 pub type Body {
   ApiRequestV4(client_software_name: String, client_software_version: String)
-  ApiResponseV4(api_keys: List(ApiKeys), throttle: Int)
+  ApiResponseV4(api_keys: List(ApiKeys), throttle: Int, tag_buffer: Int)
   ResponseError(code: Int)
   None
 }
 
 pub type ApiKeys {
-  ApiVersion(start: Int, end: Int)
+  ApiVersion(start: Int, end: Int, tag_buffer: Int)
 }
 
 pub fn to_bitarray(packet: KPacket) -> BitArray {
@@ -32,16 +32,20 @@ pub fn to_bitarray(packet: KPacket) -> BitArray {
 fn header_to_bitarray(header: KPacket) -> BitArray {
   case header {
     HeaderV0(_, _, correlation_id) -> <<correlation_id:int-big-size(32)>>
-    _ -> <<>>
+    _ -> {
+      <<>>
+    }
   }
 }
 
 fn body_to_bitarray(body: Body) -> BitArray {
   case body {
-    ApiResponseV4(api_keys, throttle) -> <<
+    ApiResponseV4(api_keys, throttle, tag_buffer) -> <<
       api_keys_list_to_bitarray(api_keys):bits,
-      throttle:int-big-size(2),
+      throttle:int-big-size(16),
+      tag_buffer:int-big-size(8),
     >>
+    ResponseError(code) -> <<code:int-big-size(16)>>
     _ -> <<>>
   }
 }
@@ -58,10 +62,11 @@ fn api_keys_list_to_bitarray(api_keys: List(ApiKeys)) -> BitArray {
 
 fn api_key_to_bitarray(api_key: ApiKeys) -> BitArray {
   case api_key {
-    ApiVersion(start, end) -> <<
+    ApiVersion(start, end, tag_buffer) -> <<
       18:16,
       start:int-big-size(16),
       end:int-big-size(16),
+      tag_buffer:int-big-size(8),
     >>
   }
 }

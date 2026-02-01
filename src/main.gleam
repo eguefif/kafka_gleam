@@ -37,7 +37,7 @@ fn build_response(request: KPacket) -> BytesTree {
 }
 
 fn handle_header_v2(request: KPacket) -> BytesTree {
-  let assert HeaderV2(_, request_api_key, ..) = request
+  let assert HeaderV2(_, _, _, request_api_key, ..) = request
   case request_api_key {
     18 -> get_api_version_response(request)
     _ -> get_not_implemented_api_key()
@@ -45,7 +45,6 @@ fn handle_header_v2(request: KPacket) -> BytesTree {
 }
 
 fn get_not_implemented_api_key() -> BytesTree {
-  echo "test"
   bytes_tree.from_bit_array(<<>>)
 }
 
