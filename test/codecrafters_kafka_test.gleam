@@ -34,7 +34,7 @@ pub fn read_varint_2_byte_with_remaining_test() {
 }
 
 pub fn read_compact_string_test() {
-  let size = 0b0000_1100
+  let size = 0b0000_1101
   let assert Ok(#(str, _)) =
     try_read_compact_string(<<
       size:8,

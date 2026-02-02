@@ -1,46 +1,72 @@
 import gleam/bytes_tree.{type BytesTree}
 import gleam/io
+import gleam/result
+import gleam/string
 
 import gleam/erlang/process
 import gleam/option.{None}
 import glisten.{Packet}
 
 import internals/api_version_response.{get_api_version_response}
-import internals/kpacket.{type KPacket, HeaderV2}
+import internals/kpacket.{type KPacket, HeaderV2, Request}
 import internals/process_request.{process_request}
 
 pub fn main() {
   io.println("Logs from your program will appear here!")
 
-  // TODO: Handle error
-  let assert Ok(_) =
-    glisten.new(fn(_conn) { #(Nil, None) }, fn(state, msg, conn) {
-      io.println("Received message!")
-      let assert Packet(msg) = msg
-      let assert Ok(request) = process_request(msg)
-      let response = build_response(request)
-      send_response(conn, response)
-      glisten.continue(state)
-    })
+  let server =
+    glisten.new(fn(_conn) { #(Nil, None) }, handler)
     |> glisten.start(9092)
 
-  process.sleep_forever()
+  case server {
+    Ok(_) -> process.sleep_forever()
+    Error(err) -> {
+      io.println("Failed to start server" <> string.inspect(err))
+      Nil
+    }
+  }
+}
+
+fn handler(state, msg, conn) {
+  io.println("Received message!")
+  let response = case msg {
+    Packet(msg) -> {
+      msg
+      |> process_request
+      |> result.map(build_response)
+      |> result.unwrap(get_error_response())
+    }
+    _ -> get_error_response()
+  }
+  send_response(conn, response)
+  glisten.continue(state)
+}
+
+fn get_error_response() -> BytesTree {
+  bytes_tree.from_bit_array(<<>>)
 }
 
 fn build_response(request: KPacket) -> BytesTree {
-  case request {
-    HeaderV2(..) -> {
-      handle_header_v2(request)
+  let assert Request(_, header, _) = request
+  case header {
+    HeaderV2(api_key, ..) -> {
+      handle_header_v2(api_key, request)
     }
     _ -> get_not_implemented_api_key()
   }
 }
 
-fn handle_header_v2(request: KPacket) -> BytesTree {
-  let assert HeaderV2(_, _, request_api_key, ..) = request
-  case request_api_key {
+fn handle_header_v2(api_key: Int, request: KPacket) -> BytesTree {
+  let response = case api_key {
     18 -> get_api_version_response(request)
-    _ -> get_not_implemented_api_key()
+    _ -> {
+      echo "Hey"
+      Ok(get_not_implemented_api_key())
+    }
+  }
+  case response {
+    Ok(response) -> response
+    Error(Nil) -> get_error_response()
   }
 }
 

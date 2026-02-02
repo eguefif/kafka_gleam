@@ -1,5 +1,7 @@
 import gleam/result
-import internals/kpacket.{type Body, type KPacket, ApiRequestV4, HeaderV2}
+import internals/kpacket.{
+  type Body, type KPacket, ApiRequestV4, HeaderV2, Request,
+}
 import internals/read_bytes.{
   try_read_compact_string, try_read_i8, try_read_nullable_string,
 }
@@ -10,16 +12,16 @@ pub fn process_request(bytes: BitArray) -> Result(KPacket, Nil) {
   )
   use #(client_id, rest) <- result.try(try_read_nullable_string(rest))
   use #(tagged_fields, rest) <- result.try(try_read_i8(rest))
+  let header =
+    HeaderV2(
+      request_api_key,
+      request_api_version,
+      correlation_id,
+      client_id,
+      tagged_fields,
+    )
   use body <- result.try(get_body(request_api_key, rest))
-  Ok(HeaderV2(
-    size:,
-    request_api_key:,
-    request_api_version:,
-    correlation_id:,
-    client_id:,
-    tagged_fields:,
-    body:,
-  ))
+  Ok(Request(size:, header:, body:))
 }
 
 fn parse_header(bytes: BitArray) -> Result(#(Int, Int, Int, Int, BitArray), Nil) {

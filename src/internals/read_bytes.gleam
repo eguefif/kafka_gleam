@@ -39,7 +39,7 @@ pub fn try_read_compact_string(
   bytes: BitArray,
 ) -> Result(#(String, BitArray), Nil) {
   use #(string_size, rest) <- result.try(read_varint(bytes))
-  use #(raw_str, rest) <- result.try(try_read_bytes(rest, string_size))
+  use #(raw_str, rest) <- result.try(try_read_bytes(rest, string_size - 1))
   use str <- result.try(bit_array.to_string(raw_str))
   Ok(#(str, rest))
 }

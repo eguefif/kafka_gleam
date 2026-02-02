@@ -1,30 +1,31 @@
 import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
+import gleam/result
 import internals/kpacket.{
-  type Body, type KPacket, ApiResponseV4, ApiVersion, DescribeTopicPartition,
-  HeaderV0, HeaderV2, None, ResponseError,
+  type Body, type Header, type KPacket, ApiResponseV4, ApiVersion,
+  DescribeTopicPartition, HeaderV0, HeaderV2, Request, Response, ResponseError,
 }
 
-pub fn get_api_version_response(request: KPacket) -> BytesTree {
-  let assert HeaderV0(_, correlation_id) = get_header(request)
-
-  let body = get_body(request)
-  let response =
-    kpacket.to_bitarray(HeaderV0(body:, correlation_id: correlation_id))
+pub fn get_api_version_response(request: KPacket) -> Result(BytesTree, Nil) {
+  let assert Request(_, request_header, _) = request
+  use header <- result.try(get_header(request_header))
+  let body = get_body(request_header)
+  let response = kpacket.to_bitarray(Response(header:, body:))
   let response_size = bit_array.byte_size(response)
-  bytes_tree.from_bit_array(<<response_size:size(32), response:bits>>)
+  Ok(bytes_tree.from_bit_array(<<response_size:size(32), response:bits>>))
 }
 
-fn get_header(request: KPacket) -> KPacket {
-  let assert HeaderV2(_, _, _, _, correlation_id, ..) = request
-
-  HeaderV0(correlation_id:, body: None)
+fn get_header(header: Header) -> Result(Header, Nil) {
+  case header {
+    HeaderV2(_, _, correlation_id, ..) -> Ok(HeaderV0(correlation_id:))
+    _ -> Error(Nil)
+  }
 }
 
-pub fn get_body(request: KPacket) -> Body {
-  let assert HeaderV2(_, _, _, request_api_version, ..) = request
+pub fn get_body(header: Header) {
+  let assert HeaderV2(_, request_api_version, ..) = header
   case request_api_version {
-    1 | 2 | 3 | 4 -> {
+    0 | 1 | 2 | 3 | 4 -> {
       get_body_api_key()
     }
     _ -> {
