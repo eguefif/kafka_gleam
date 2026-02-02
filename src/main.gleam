@@ -10,9 +10,9 @@ import internals/kpacket.{type KPacket, HeaderV2}
 import internals/process_request.{process_request}
 
 pub fn main() {
-  // You can use print statements as follows for debugging, they'll be visible when running tests.
   io.println("Logs from your program will appear here!")
 
+  // TODO: Handle error
   let assert Ok(_) =
     glisten.new(fn(_conn) { #(Nil, None) }, fn(state, msg, conn) {
       io.println("Received message!")
