@@ -15,6 +15,13 @@ pub fn try_read_i16(bytes) -> Result(#(Int, BitArray), Nil) {
   }
 }
 
+pub fn try_read_i32(bytes) -> Result(#(Int, BitArray), Nil) {
+  case bytes {
+    <<num:int-big-size(32), rest:bits>> -> Ok(#(num, rest))
+    _ -> Error(Nil)
+  }
+}
+
 pub fn try_read_bytes(
   bytes: BitArray,
   size: Int,

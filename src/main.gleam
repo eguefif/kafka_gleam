@@ -42,10 +42,6 @@ fn handler(state, msg, conn) {
   glisten.continue(state)
 }
 
-fn get_error_response() -> BytesTree {
-  bytes_tree.from_bit_array(<<>>)
-}
-
 fn build_response(request: KPacket) -> BytesTree {
   let assert Request(_, header, _) = request
   case header {
@@ -59,10 +55,7 @@ fn build_response(request: KPacket) -> BytesTree {
 fn handle_header_v2(api_key: Int, request: KPacket) -> BytesTree {
   let response = case api_key {
     18 -> get_api_version_response(request)
-    _ -> {
-      echo "Hey"
-      Ok(get_not_implemented_api_key())
-    }
+    _ -> Ok(get_not_implemented_api_key())
   }
   case response {
     Ok(response) -> response
@@ -82,4 +75,8 @@ fn send_response(
     Ok(Nil) -> io.println("Response sent")
     Error(_) -> io.println("Error")
   }
+}
+
+fn get_error_response() -> BytesTree {
+  bytes_tree.from_bit_array(<<>>)
 }
