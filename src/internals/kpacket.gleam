@@ -17,10 +17,27 @@ pub type Header {
 }
 
 pub type Body {
-  ApiRequestV4(client_software_name: String, client_software_version: String)
-  ApiResponseV4(api_keys: List(ApiKeys), throttle: Int, tag_buffer: Int)
+  ApiVersionRequestV4(
+    client_software_name: String,
+    client_software_version: String,
+  )
+  ApiVersionResponseV4(api_keys: List(ApiKeys), throttle: Int, tag_buffer: Int)
+
+  DescribeTopicRequestV0(
+    topics: List(PacketComponent),
+    response_partition_limit: Int,
+    cursor: PacketComponent,
+    tagged_field: Int,
+  )
+
   ResponseError(code: Int)
   None
+}
+
+pub type PacketComponent {
+  Topic(tagged_field: Int, name: String)
+  //Cursor(topic_name: String, partition_index: Int)
+  Cursor(partition_index: Int)
 }
 
 pub type ApiKeys {
@@ -46,7 +63,7 @@ fn header_to_bitarray(header: Header) -> BitArray {
 
 fn body_to_bitarray(body: Body) -> BitArray {
   case body {
-    ApiResponseV4(api_keys, throttle, tag_buffer) -> <<
+    ApiVersionResponseV4(api_keys, throttle, tag_buffer) -> <<
       0:int-big-size(16),
       { list.length(api_keys) + 1 }:int-big-size(8),
       api_keys_list_to_bitarray(api_keys):bits,

@@ -2,7 +2,7 @@ import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
 import gleam/result
 import internals/kpacket.{
-  type Body, type Header, type KPacket, ApiResponseV4, ApiVersion,
+  type Body, type Header, type KPacket, ApiVersion, ApiVersionResponseV4,
   DescribeTopicPartition, HeaderV0, HeaderV2, Request, Response, ResponseError,
 }
 
@@ -39,5 +39,5 @@ fn get_body_api_key() -> Body {
     ApiVersion(start: 0, end: 4, tag_buffer: 0),
     DescribeTopicPartition(start: 0, end: 0, tag_buffer: 0),
   ]
-  ApiResponseV4(api_keys:, throttle: 0, tag_buffer: 0)
+  ApiVersionResponseV4(api_keys:, throttle: 0, tag_buffer: 0)
 }
