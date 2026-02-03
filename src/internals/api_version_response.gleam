@@ -6,6 +6,8 @@ import internals/kpacket.{
   DescribeTopicPartition, HeaderV0, HeaderV2, Request, Response, ResponseError,
 }
 
+// TODO: handle key 75: describe
+
 pub fn get_api_version_response(request: KPacket) -> Result(BytesTree, Nil) {
   let assert Request(_, request_header, _) = request
   use header <- result.try(get_header(request_header))

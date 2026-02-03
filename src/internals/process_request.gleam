@@ -1,7 +1,8 @@
 import gleam/result
 import internals/kpacket.{
   type Body, type Header, type KPacket, type PacketComponent,
-  ApiVersionRequestV4, Cursor, DescribeTopicRequestV0, HeaderV2, Request, Topic,
+  ApiVersionRequestV4, Cursor, DescribeTopicRequestV0, HeaderV2, Request,
+  RequestTopic,
 }
 import internals/read_bytes.{
   read_varint, try_read_compact_string, try_read_i32, try_read_i8,
@@ -84,7 +85,7 @@ fn try_read_compact_array(
 fn try_read_topic(bytes: BitArray) -> Result(#(PacketComponent, BitArray), Nil) {
   use #(name, rest) <- result.try(try_read_compact_string(bytes))
   use #(tagged_field, rest) <- result.try(try_read_i8(rest))
-  Ok(#(Topic(tagged_field:, name:), rest))
+  Ok(#(RequestTopic(tagged_field:, name:), rest))
 }
 
 fn read_compact_array_loop(

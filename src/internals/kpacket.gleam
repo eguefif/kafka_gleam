@@ -1,4 +1,6 @@
+import gleam/bit_array
 import gleam/list
+import gleam/result
 
 pub type KPacket {
   Request(size: Int, header: Header, body: Body)
@@ -7,6 +9,7 @@ pub type KPacket {
 
 pub type Header {
   HeaderV0(correlation_id: Int)
+  HeaderV1(correlation_id: Int, tag_buffer: Int)
   HeaderV2(
     request_api_key: Int,
     request_api_version: Int,
@@ -29,13 +32,39 @@ pub type Body {
     cursor: PacketComponent,
     tagged_field: Int,
   )
+  DescribeTopicResponseV0(
+    throttle_time: Int,
+    topics: List(PacketComponent),
+    next_cursor: Int,
+    tag_field: Int,
+  )
 
   ResponseError(code: Int)
   None
 }
 
 pub type PacketComponent {
-  Topic(tagged_field: Int, name: String)
+  RequestTopic(tagged_field: Int, name: String)
+  ResponseTopic(
+    error_code: Int,
+    name: String,
+    topic_id: String,
+    is_internal: Bool,
+    partitions: Int,
+    topic_authorized_operations: Int,
+    tag_field: Int,
+  )
+  Partition(
+    error_code: Int,
+    parition_index: Int,
+    leader_id: Int,
+    leader_epoch: Int,
+    isr_nodes: Int,
+    eligible_leader_replicas: Int,
+    last_know_elr: Int,
+    offline_replicas: Int,
+  )
+  NextCursor(topic_name: String, partition_index: Int)
   //Cursor(topic_name: String, partition_index: Int)
   Cursor(partition_index: Int)
 }
@@ -101,4 +130,85 @@ fn api_key_to_bitarray(api_key: ApiKeys) -> BitArray {
       tag_buffer:int-big-size(8),
     >>
   }
+}
+
+// To bytes function write:
+// compact_array_to_bytes
+// response_topic_bo_bytes
+// will compact array partition with nothing for now.
+
+pub fn compact_array_to_bytes(
+  values: List(value),
+  serialize_func: fn(value) -> Result(BitArray, Nil),
+) -> Result(BitArray, Nil) {
+  use dumps <- result.try(compact_array_to_bytes_loop(values, serialize_func))
+  use list_size <- result.try(encode_varint(list.length(values) + 1))
+  Ok(<<list_size:bits, dumps:bits>>)
+}
+
+pub fn encode_varint(int: Int) -> Result(BitArray, Nil) {
+  // TODO: encode varint
+  todo
+}
+
+fn compact_array_to_bytes_loop(
+  list: List(value),
+  serialize_func: fn(value) -> Result(BitArray, Nil),
+) -> Result(BitArray, Nil) {
+  case list {
+    [first, ..rest] -> {
+      use dumps <- result.try(compact_array_to_bytes(rest, serialize_func))
+      use serialized_value <- result.try(serialize_func(first))
+      Ok(<<serialized_value:bits, dumps:bits>>)
+    }
+    [] -> Ok(<<>>)
+  }
+}
+
+//ResponseTopic(
+//  error_code: Int,
+//  name: String,
+//  topic_id: String,
+//  is_internal: Bool,
+//  partitions: List(PacketComponent),
+//  topic_authorized_operations: Int,
+//  tag_field: Int,
+//)
+
+fn response_topic_to_bytes(topic: PacketComponent) -> Result(BitArray, Nil) {
+  let assert ResponseTopic(
+    error_code,
+    name,
+    topic_id,
+    is_internal,
+    partitions,
+    topic_authorized_operations,
+    tag_field,
+  ) = topic
+
+  let topic_id = bit_array.from_string(topic_id)
+  use topic_name <- result.try(compact_nullable_string_to_bytes(name))
+  Ok(<<
+    error_code:int-big-size(16),
+    topic_name:bits,
+    topic_id:bits,
+    encode_bool(is_internal):bits,
+    partitions:int-big-size(8),
+    topic_authorized_operations:int-big-size(32),
+    tag_field:int-big-size(8),
+  >>)
+}
+
+fn encode_bool(bool: Bool) -> BitArray {
+  case bool {
+    True -> <<1:size(1)>>
+    False -> <<0:size(1)>>
+  }
+}
+
+fn compact_nullable_string_to_bytes(str: String) -> Result(BitArray, Nil) {
+  // TODO: impl compact_nullable_string
+  // Represents a sequence of characters. First the length N + 1 is given as an UNSIGNED_VARINT . 
+  // Then N bytes follow which are the UTF-8 encoding of the character sequence. A null string is represented with a length of 0.
+  todo
 }
