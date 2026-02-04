@@ -7,9 +7,9 @@ import gleam/erlang/process
 import gleam/option.{None}
 import glisten.{Packet}
 
-import internals/api_version_response.{get_api_version_response}
 import internals/kpacket.{type KPacket, HeaderV2, Request}
 import internals/process_request.{process_request}
+import internals/response.{build_response}
 
 // TODO: refactor structure.
 // Put bytes read and write primites in a module with documentation
@@ -36,38 +36,13 @@ fn handler(state, msg, conn) {
     Packet(msg) -> {
       msg
       |> process_request
-      |> result.map(build_response)
+      |> result.try(build_response)
       |> result.unwrap(get_error_response())
     }
     _ -> get_error_response()
   }
   send_response(conn, response)
   glisten.continue(state)
-}
-
-fn build_response(request: KPacket) -> BytesTree {
-  let assert Request(_, header, _) = request
-  case header {
-    HeaderV2(api_key, ..) -> {
-      handle_header_v2(api_key, request)
-    }
-    _ -> get_not_implemented_api_key()
-  }
-}
-
-fn handle_header_v2(api_key: Int, request: KPacket) -> BytesTree {
-  let response = case api_key {
-    18 -> get_api_version_response(request)
-    _ -> Ok(get_not_implemented_api_key())
-  }
-  case response {
-    Ok(response) -> response
-    Error(Nil) -> get_error_response()
-  }
-}
-
-fn get_not_implemented_api_key() -> BytesTree {
-  bytes_tree.from_bit_array(<<>>)
 }
 
 fn send_response(

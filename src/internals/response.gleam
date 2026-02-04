@@ -8,6 +8,20 @@ import internals/kpacket.{
 
 // TODO: handle key 75: describe
 
+pub fn build_response(request: KPacket) -> Result(BytesTree, Nil) {
+  let assert Request(_, header, _) = request
+  case header {
+    HeaderV2(18, ..) -> {
+      get_api_version_response(request)
+    }
+    _ -> Ok(get_not_implemented_api_key())
+  }
+}
+
+fn get_not_implemented_api_key() -> BytesTree {
+  bytes_tree.from_bit_array(<<>>)
+}
+
 pub fn get_api_version_response(request: KPacket) -> Result(BytesTree, Nil) {
   let assert Request(_, request_header, _) = request
   use header <- result.try(get_header(request_header))
