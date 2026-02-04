@@ -11,6 +11,9 @@ import internals/api_version_response.{get_api_version_response}
 import internals/kpacket.{type KPacket, HeaderV2, Request}
 import internals/process_request.{process_request}
 
+// TODO: refactor structure.
+// Put bytes read and write primites in a module with documentation
+
 pub fn main() {
   io.println("Logs from your program will appear here!")
 

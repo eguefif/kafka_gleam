@@ -1,6 +1,7 @@
 import gleam/bit_array
 import gleam/list
 import gleam/result
+import gleam/string
 import internals/read_bytes.{encode_varint}
 
 pub type KPacket {
@@ -161,16 +162,6 @@ fn compact_array_to_bytes_loop(
   }
 }
 
-//ResponseTopic(
-//  error_code: Int,
-//  name: String,
-//  topic_id: String,
-//  is_internal: Bool,
-//  partitions: List(PacketComponent),
-//  topic_authorized_operations: Int,
-//  tag_field: Int,
-//)
-
 fn response_topic_to_bytes(topic: PacketComponent) -> Result(BitArray, Nil) {
   let assert ResponseTopic(
     error_code,
@@ -203,8 +194,7 @@ fn encode_bool(bool: Bool) -> BitArray {
 }
 
 fn compact_nullable_string_to_bytes(str: String) -> Result(BitArray, Nil) {
-  // TODO: impl compact_nullable_string
-  // Represents a sequence of characters. First the length N + 1 is given as an UNSIGNED_VARINT . 
-  // Then N bytes follow which are the UTF-8 encoding of the character sequence. A null string is represented with a length of 0.
-  todo
+  let len = string.length(str) + 1
+  use varint <- result.try(encode_varint(len))
+  Ok(<<varint:bits, str:utf8>>)
 }
