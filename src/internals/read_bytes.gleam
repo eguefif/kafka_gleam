@@ -1,8 +1,14 @@
 import gleam/bit_array
 import gleam/int
 import gleam/io
+import gleam/list
 import gleam/result
 import gleam/string
+
+// TODO: organize into different module depending on the type:
+// * number
+// * list: string + array
+// Write documentation 
 
 pub fn try_read_i8(bytes) -> Result(#(Int, BitArray), Nil) {
   case bytes {
@@ -102,4 +108,28 @@ pub fn compact_nullable_string_to_bytes(str: String) -> Result(BitArray, Nil) {
   let len = string.length(str) + 1
   use varint <- result.try(encode_varint(len))
   Ok(<<varint:bits, str:utf8>>)
+}
+
+pub fn compact_array_to_bytes(
+  values: List(value),
+  serialize_func: fn(value) -> Result(BitArray, Nil),
+) -> Result(BitArray, Nil) {
+  use dumps <- result.try(compact_array_to_bytes_loop(values, serialize_func))
+  use list_size <- result.try(encode_varint(list.length(values) + 1))
+  Ok(<<list_size:bits, dumps:bits>>)
+}
+
+fn compact_array_to_bytes_loop(
+  list: List(value),
+  serialize_func: fn(value) -> Result(BitArray, Nil),
+) -> Result(BitArray, Nil) {
+  case list {
+    [first, ..rest] -> {
+      use dumps <- result.try(compact_array_to_bytes_loop(rest, serialize_func))
+      use serialized_value <- result.try(serialize_func(first))
+      io.println(string.inspect(dumps))
+      Ok(<<serialized_value:bits, dumps:bits>>)
+    }
+    [] -> Ok(<<>>)
+  }
 }

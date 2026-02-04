@@ -7,7 +7,6 @@ import gleam/erlang/process
 import gleam/option.{None}
 import glisten.{Packet}
 
-import internals/kpacket.{type KPacket, HeaderV2, Request}
 import internals/process_request.{process_request}
 import internals/response.{build_response}
 

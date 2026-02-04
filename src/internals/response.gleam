@@ -2,11 +2,13 @@ import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
 import gleam/result
 import internals/kpacket.{
-  type Body, type Header, type KPacket, ApiVersion, ApiVersionResponseV4,
-  DescribeTopicPartition, HeaderV0, HeaderV2, Request, Response, ResponseError,
+  type Body, type Header, type KPacket, type PacketComponent, ApiVersion,
+  ApiVersionResponseV4, DescribeTopicPartition, DescribeTopicRequestV0,
+  DescribeTopicResponseV0, HeaderV0, HeaderV1, HeaderV2, Hv0, Hv1, Request,
+  RequestTopic, ResponseError, ResponseTopic,
 }
 
-// TODO: handle key 75: describe
+// TODO: extract each API function into their own module. This module should be a dispatch
 
 pub fn build_response(request: KPacket) -> Result(BytesTree, Nil) {
   let assert Request(_, header, _) = request
@@ -27,16 +29,25 @@ fn get_not_implemented_api_key() -> BytesTree {
 
 pub fn get_api_version_response(request: KPacket) -> Result(BytesTree, Nil) {
   let assert Request(_, request_header, _) = request
-  use header <- result.try(get_header(request_header))
+  use header <- result.try(get_header(request_header, Hv0))
   let body = get_body(request_header)
-  let response = kpacket.to_bitarray(Response(header:, body:))
+  craft_bytes_response(header, body)
+}
+
+fn craft_bytes_response(header: Header, body: Body) -> Result(BytesTree, Nil) {
+  use response <- result.try(kpacket.to_bitarray(header, body))
   let response_size = bit_array.byte_size(response)
   Ok(bytes_tree.from_bit_array(<<response_size:size(32), response:bits>>))
 }
 
-fn get_header(header: Header) -> Result(Header, Nil) {
-  case header {
-    HeaderV2(_, _, correlation_id, ..) -> Ok(HeaderV0(correlation_id:))
+fn get_header(
+  header: Header,
+  header_response_type: Header,
+) -> Result(Header, Nil) {
+  let assert HeaderV2(_, _, correlation_id, ..) = header
+  case header_response_type {
+    Hv0 -> Ok(HeaderV0(correlation_id:))
+    Hv1 -> Ok(HeaderV1(correlation_id:, tag_buffer: 0))
     _ -> Error(Nil)
   }
 }
@@ -62,5 +73,41 @@ fn get_body_api_key() -> Body {
 }
 
 fn get_describe_topic_response(request: KPacket) -> Result(BytesTree, Nil) {
-  todo
+  let assert Request(_, header, body) = request
+  use header <- result.try(get_header(header, Hv1))
+  let body = get_describe_topic_body(body)
+  craft_bytes_response(header, body)
+}
+
+fn get_describe_topic_body(body: Body) -> Body {
+  let assert DescribeTopicRequestV0(topics, ..) = body
+  DescribeTopicResponseV0(
+    throttle_time: 0,
+    topics: get_topics(topics),
+    next_cursor: 255,
+    tag_field: 0,
+  )
+}
+
+fn get_topics(topics: List(PacketComponent)) -> List(PacketComponent) {
+  case topics {
+    [first, ..rest] -> {
+      let response_topics = get_topics(rest)
+      [get_one_topic_response(first), ..response_topics]
+    }
+    [] -> []
+  }
+}
+
+fn get_one_topic_response(topic: PacketComponent) -> PacketComponent {
+  let assert RequestTopic(_, name) = topic
+  ResponseTopic(
+    error_code: 3,
+    name:,
+    topic_id: "00000000-0000-0000-0000-000000000000",
+    is_internal: False,
+    partitions: 1,
+    topic_authorized_operations: 0,
+    tag_field: 0,
+  )
 }

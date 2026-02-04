@@ -1,8 +1,11 @@
-import gleam/bit_array
 import gleam/list
 import gleam/result
-import internals/read_bytes.{compact_nullable_string_to_bytes, encode_varint}
+import internals/read_bytes.{
+  compact_array_to_bytes, compact_nullable_string_to_bytes,
+}
 
+// TODO: refactor the way I organize header and body. This should use more files
+// TODO: extract generic serialize function and name them write
 pub type KPacket {
   Request(size: Int, header: Header, body: Body)
   Response(header: Header, body: Body)
@@ -18,6 +21,9 @@ pub type Header {
     client_id: String,
     tagged_fields: Int,
   )
+  Hv0
+  Hv1
+  Hv2
 }
 
 pub type Body {
@@ -75,33 +81,38 @@ pub type ApiKeys {
   DescribeTopicPartition(start: Int, end: Int, tag_buffer: Int)
 }
 
-pub fn to_bitarray(packet: KPacket) -> BitArray {
-  let assert Response(header, body) = packet
+pub fn to_bitarray(header: Header, body: Body) -> Result(BitArray, Nil) {
   let header = header_to_bitarray(header)
-  let body = body_to_bitarray(body)
-  <<header:bits, body:bits>>
+  use body <- result.try(body_to_bitarray(body))
+  Ok(<<header:bits, body:bits>>)
 }
 
 fn header_to_bitarray(header: Header) -> BitArray {
   case header {
     HeaderV0(correlation_id) -> <<correlation_id:int-big-size(32)>>
+    HeaderV1(correlation_id, tag_buffer) -> <<
+      correlation_id:int-big-size(32),
+      tag_buffer:int-big-size(8),
+    >>
     _ -> {
       <<>>
     }
   }
 }
 
-fn body_to_bitarray(body: Body) -> BitArray {
+fn body_to_bitarray(body: Body) -> Result(BitArray, Nil) {
   case body {
-    ApiVersionResponseV4(api_keys, throttle, tag_buffer) -> <<
-      0:int-big-size(16),
-      { list.length(api_keys) + 1 }:int-big-size(8),
-      api_keys_list_to_bitarray(api_keys):bits,
-      throttle:int-big-size(32),
-      tag_buffer:int-big-size(8),
-    >>
-    ResponseError(code) -> <<code:int-big-size(16)>>
-    _ -> <<>>
+    ApiVersionResponseV4(api_keys, throttle, tag_buffer) ->
+      Ok(<<
+        0:int-big-size(16),
+        { list.length(api_keys) + 1 }:int-big-size(8),
+        api_keys_list_to_bitarray(api_keys):bits,
+        throttle:int-big-size(32),
+        tag_buffer:int-big-size(8),
+      >>)
+    DescribeTopicResponseV0(..) -> describe_topic_response_to_bytes(body)
+    ResponseError(code) -> Ok(<<code:int-big-size(16)>>)
+    _ -> Ok(<<>>)
   }
 }
 
@@ -133,34 +144,6 @@ fn api_key_to_bitarray(api_key: ApiKeys) -> BitArray {
   }
 }
 
-// To bytes function write:
-// compact_array_to_bytes
-// response_topic_bo_bytes
-// will compact array partition with nothing for now.
-
-pub fn compact_array_to_bytes(
-  values: List(value),
-  serialize_func: fn(value) -> Result(BitArray, Nil),
-) -> Result(BitArray, Nil) {
-  use dumps <- result.try(compact_array_to_bytes_loop(values, serialize_func))
-  use list_size <- result.try(encode_varint(list.length(values) + 1))
-  Ok(<<list_size:bits, dumps:bits>>)
-}
-
-fn compact_array_to_bytes_loop(
-  list: List(value),
-  serialize_func: fn(value) -> Result(BitArray, Nil),
-) -> Result(BitArray, Nil) {
-  case list {
-    [first, ..rest] -> {
-      use dumps <- result.try(compact_array_to_bytes(rest, serialize_func))
-      use serialized_value <- result.try(serialize_func(first))
-      Ok(<<serialized_value:bits, dumps:bits>>)
-    }
-    [] -> Ok(<<>>)
-  }
-}
-
 pub fn describe_topic_response_to_bytes(response: Body) -> Result(BitArray, Nil) {
   let assert DescribeTopicResponseV0(
     throttle_time,
@@ -189,7 +172,7 @@ fn response_topic_to_bytes(topic: PacketComponent) -> Result(BitArray, Nil) {
     tag_field,
   ) = topic
 
-  let topic_id = bit_array.from_string(topic_id)
+  use topic_id <- result.try(encode_uuidv4(topic_id))
   use topic_name <- result.try(compact_nullable_string_to_bytes(name))
   Ok(<<
     error_code:int-big-size(16),
@@ -204,7 +187,12 @@ fn response_topic_to_bytes(topic: PacketComponent) -> Result(BitArray, Nil) {
 
 fn encode_bool(bool: Bool) -> BitArray {
   case bool {
-    True -> <<1:size(1)>>
-    False -> <<0:size(1)>>
+    True -> <<1:size(8)>>
+    False -> <<0:size(8)>>
   }
+}
+
+fn encode_uuidv4(_topic_id: String) -> Result(BitArray, Nil) {
+  // TODO: Impl uuidv4 encoding
+  Ok(<<0:size({ 16 * 8 })>>)
 }
