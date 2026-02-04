@@ -2,7 +2,7 @@ import gleam/bit_array
 import gleam/list
 import gleam/result
 import gleam/string
-import internals/read_bytes.{encode_varint}
+import internals/read_bytes.{compact_nullable_string_to_bytes, encode_varint}
 
 pub type KPacket {
   Request(size: Int, header: Header, body: Body)
@@ -191,10 +191,4 @@ fn encode_bool(bool: Bool) -> BitArray {
     True -> <<1:size(1)>>
     False -> <<0:size(1)>>
   }
-}
-
-fn compact_nullable_string_to_bytes(str: String) -> Result(BitArray, Nil) {
-  let len = string.length(str) + 1
-  use varint <- result.try(encode_varint(len))
-  Ok(<<varint:bits, str:utf8>>)
 }

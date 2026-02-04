@@ -97,3 +97,9 @@ pub fn encode_varint(num: Int) -> Result(BitArray, Nil) {
     }
   }
 }
+
+pub fn compact_nullable_string_to_bytes(str: String) -> Result(BitArray, Nil) {
+  let len = string.length(str) + 1
+  use varint <- result.try(encode_varint(len))
+  Ok(<<varint:bits, str:utf8>>)
+}
