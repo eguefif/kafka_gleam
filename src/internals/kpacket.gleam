@@ -1,7 +1,6 @@
 import gleam/bit_array
 import gleam/list
 import gleam/result
-import gleam/string
 import internals/read_bytes.{compact_nullable_string_to_bytes, encode_varint}
 
 pub type KPacket {
@@ -160,6 +159,23 @@ fn compact_array_to_bytes_loop(
     }
     [] -> Ok(<<>>)
   }
+}
+
+pub fn describe_topic_response_to_bytes(response: Body) -> Result(BitArray, Nil) {
+  let assert DescribeTopicResponseV0(
+    throttle_time,
+    topics,
+    next_cursor,
+    tag_field,
+  ) = response
+  let throttle_time = <<throttle_time:int-big-size(32)>>
+  use topics <- result.try(compact_array_to_bytes(
+    topics,
+    response_topic_to_bytes,
+  ))
+  let next_cursor = <<next_cursor:int-big-size(8)>>
+  let tag_field = <<tag_field:int-big-size(8)>>
+  Ok(<<throttle_time:bits, topics:bits, next_cursor:bits, tag_field:bits>>)
 }
 
 fn response_topic_to_bytes(topic: PacketComponent) -> Result(BitArray, Nil) {

@@ -14,6 +14,9 @@ pub fn build_response(request: KPacket) -> Result(BytesTree, Nil) {
     HeaderV2(18, ..) -> {
       get_api_version_response(request)
     }
+    HeaderV2(75, ..) -> {
+      get_describe_topic_response(request)
+    }
     _ -> Ok(get_not_implemented_api_key())
   }
 }
@@ -56,4 +59,8 @@ fn get_body_api_key() -> Body {
     DescribeTopicPartition(start: 0, end: 0, tag_buffer: 0),
   ]
   ApiVersionResponseV4(api_keys:, throttle: 0, tag_buffer: 0)
+}
+
+fn get_describe_topic_response(request: KPacket) -> Result(BytesTree, Nil) {
+  todo
 }
