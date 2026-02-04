@@ -1,5 +1,8 @@
 import gleam/bit_array
+import gleam/int
+import gleam/io
 import gleam/result
+import gleam/string
 
 pub fn try_read_i8(bytes) -> Result(#(Int, BitArray), Nil) {
   case bytes {
@@ -80,4 +83,17 @@ pub fn try_read_nullable_string(
   use #(raw_str, rest) <- result.try(try_read_bytes(rest, size))
   use str <- result.try(bit_array.to_string(raw_str))
   Ok(#(str, rest))
+}
+
+pub fn encode_varint(num: Int) -> Result(BitArray, Nil) {
+  case num >= 0b1000_0000 {
+    True -> {
+      use buffer <- result.try(encode_varint(int.bitwise_shift_right(num, 7)))
+      let num = int.bitwise_or(num, 0b1000_0000)
+      Ok(<<1:1, num:int-size(7), buffer:bits>>)
+    }
+    False -> {
+      Ok(<<0:1, num:int-big-size(7)>>)
+    }
+  }
 }

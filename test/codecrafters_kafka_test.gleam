@@ -1,7 +1,7 @@
 import gleam/bit_array
 import gleeunit
 import internals/read_bytes.{
-  read_varint, try_read_compact_string, try_read_nullable_string,
+  encode_varint, read_varint, try_read_compact_string, try_read_nullable_string,
 }
 
 pub fn main() {
@@ -54,4 +54,16 @@ pub fn read_nullable_string_test() {
     >>)
 
   assert str == "Hello, World"
+}
+
+pub fn encode_decode_varint_test() {
+  let assert Ok(result) = encode_varint(150)
+  let assert Ok(#(result, _)) = read_varint(result)
+  assert result == 150
+}
+
+pub fn encode_decode_varint2_test() {
+  let assert Ok(result) = encode_varint(1_123_150)
+  let assert Ok(#(result, _)) = read_varint(result)
+  assert result == 1_123_150
 }

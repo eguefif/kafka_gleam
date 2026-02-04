@@ -1,6 +1,7 @@
 import gleam/bit_array
 import gleam/list
 import gleam/result
+import internals/read_bytes.{encode_varint}
 
 pub type KPacket {
   Request(size: Int, header: Header, body: Body)
@@ -144,11 +145,6 @@ pub fn compact_array_to_bytes(
   use dumps <- result.try(compact_array_to_bytes_loop(values, serialize_func))
   use list_size <- result.try(encode_varint(list.length(values) + 1))
   Ok(<<list_size:bits, dumps:bits>>)
-}
-
-pub fn encode_varint(int: Int) -> Result(BitArray, Nil) {
-  // TODO: encode varint
-  todo
 }
 
 fn compact_array_to_bytes_loop(
