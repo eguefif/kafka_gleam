@@ -1,17 +1,22 @@
 import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
 import gleam/result
+import kafka/internals/headers.{
+  type Header, HeaderV0, HeaderV1, HeaderV2, Hv0, Hv1,
+}
 import kafka/internals/kpacket.{
-  type Body, type Header, type KPacket, type PacketComponent, ApiVersion,
-  ApiVersionResponseV4, DescribeTopicPartition, DescribeTopicRequestV0,
-  DescribeTopicResponseV0, HeaderV0, HeaderV1, HeaderV2, Hv0, Hv1, Request,
-  RequestTopic, ResponseError, ResponseTopic,
+  type Body, type PacketComponent, ApiVersion, ApiVersionResponseV4,
+  DescribeTopicPartition, DescribeTopicResponseV0, ResponseError, ResponseTopic,
+}
+import kafka/internals/request.{
+  type RequestBody, type RequestComponent, type TRequest, DescribeTopicRequestV0,
+  Request, RequestTopic,
 }
 
 // TODO: extract each API function into their own module. This module should be a dispatch
 
-pub fn build_response(request: KPacket) -> Result(BytesTree, Nil) {
-  let assert Request(_, header, _) = request
+pub fn build_response(request: TRequest) -> Result(BytesTree, Nil) {
+  let Request(_, header, _) = request
   case header {
     HeaderV2(18, ..) -> {
       get_api_version_response(request)
@@ -27,8 +32,8 @@ fn get_not_implemented_api_key() -> BytesTree {
   bytes_tree.from_bit_array(<<>>)
 }
 
-pub fn get_api_version_response(request: KPacket) -> Result(BytesTree, Nil) {
-  let assert Request(_, request_header, _) = request
+pub fn get_api_version_response(request: TRequest) -> Result(BytesTree, Nil) {
+  let Request(_, request_header, _) = request
   use header <- result.try(get_header(request_header, Hv0))
   let body = get_body(request_header)
   craft_bytes_response(header, body)
@@ -72,14 +77,14 @@ fn get_body_api_key() -> Body {
   ApiVersionResponseV4(api_keys:, throttle: 0, tag_buffer: 0)
 }
 
-fn get_describe_topic_response(request: KPacket) -> Result(BytesTree, Nil) {
-  let assert Request(_, header, body) = request
+fn get_describe_topic_response(request: TRequest) -> Result(BytesTree, Nil) {
+  let Request(_, header, body) = request
   use header <- result.try(get_header(header, Hv1))
   let body = get_describe_topic_body(body)
   craft_bytes_response(header, body)
 }
 
-fn get_describe_topic_body(body: Body) -> Body {
+fn get_describe_topic_body(body: RequestBody) -> Body {
   let assert DescribeTopicRequestV0(topics, ..) = body
   DescribeTopicResponseV0(
     throttle_time: 0,
@@ -89,7 +94,7 @@ fn get_describe_topic_body(body: Body) -> Body {
   )
 }
 
-fn get_topics(topics: List(PacketComponent)) -> List(PacketComponent) {
+fn get_topics(topics: List(RequestComponent)) -> List(PacketComponent) {
   case topics {
     [first, ..rest] -> {
       let response_topics = get_topics(rest)
@@ -99,7 +104,7 @@ fn get_topics(topics: List(PacketComponent)) -> List(PacketComponent) {
   }
 }
 
-fn get_one_topic_response(topic: PacketComponent) -> PacketComponent {
+fn get_one_topic_response(topic: RequestComponent) -> PacketComponent {
   let assert RequestTopic(_, name) = topic
   ResponseTopic(
     error_code: 3,

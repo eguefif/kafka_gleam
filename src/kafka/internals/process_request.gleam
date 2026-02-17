@@ -1,14 +1,15 @@
 import gleam/result
-import kafka/internals/kpacket.{
-  type Body, type Header, type KPacket, type PacketComponent,
-  ApiVersionRequestV4, Cursor, DescribeTopicRequestV0, HeaderV2, Request,
-  RequestTopic,
+import kafka/internals/headers.{type Header, HeaderV2}
+
+import kafka/internals/request.{
+  type RequestBody, type RequestComponent, type TRequest, ApiVersionRequestV4,
+  Cursor, DescribeTopicRequestV0, Request, RequestTopic,
 }
 import kafka/primitives/array.{read_compact_array}
 import kafka/primitives/number.{read_i32, read_i8}
 import kafka/primitives/str.{read_compact_string, read_nullable_string}
 
-pub fn process_request(bytes: BitArray) -> Result(KPacket, Nil) {
+pub fn process_request(bytes: BitArray) -> Result(TRequest, Nil) {
   use #(size, rest) <- result.try(read_i32(bytes))
   use #(header, api_key, rest) <- result.try(get_header(rest))
   use body <- result.try(get_body(api_key, rest))
@@ -42,7 +43,7 @@ fn parse_header(bytes: BitArray) -> Result(#(Int, Int, Int, BitArray), Nil) {
   }
 }
 
-fn get_body(request_api_key: Int, bytes: BitArray) -> Result(Body, Nil) {
+fn get_body(request_api_key: Int, bytes: BitArray) -> Result(RequestBody, Nil) {
   case request_api_key {
     18 -> get_api_version_body(bytes)
     75 -> get_describe_topic_body(bytes)
@@ -50,14 +51,14 @@ fn get_body(request_api_key: Int, bytes: BitArray) -> Result(Body, Nil) {
   }
 }
 
-fn get_api_version_body(bytes: BitArray) -> Result(Body, Nil) {
+fn get_api_version_body(bytes: BitArray) -> Result(RequestBody, Nil) {
   use #(client_software_name, rest) <- result.try(read_compact_string(bytes))
   use #(client_software_version, _) <- result.try(read_compact_string(rest))
 
   Ok(ApiVersionRequestV4(client_software_name:, client_software_version:))
 }
 
-fn get_describe_topic_body(bytes: BitArray) -> Result(Body, Nil) {
+fn get_describe_topic_body(bytes: BitArray) -> Result(RequestBody, Nil) {
   use #(topics, rest) <- result.try(read_compact_array(bytes, read_topic))
   use #(response_partition_limit, rest) <- result.try(read_i32(rest))
   use #(cursor, rest) <- result.try(read_cursor(rest))
@@ -70,13 +71,13 @@ fn get_describe_topic_body(bytes: BitArray) -> Result(Body, Nil) {
   ))
 }
 
-fn read_topic(bytes: BitArray) -> Result(#(PacketComponent, BitArray), Nil) {
+fn read_topic(bytes: BitArray) -> Result(#(RequestComponent, BitArray), Nil) {
   use #(name, rest) <- result.try(read_compact_string(bytes))
   use #(tagged_field, rest) <- result.try(read_i8(rest))
   Ok(#(RequestTopic(tagged_field:, name:), rest))
 }
 
-fn read_cursor(bytes) -> Result(#(PacketComponent, BitArray), Nil) {
+fn read_cursor(bytes) -> Result(#(RequestComponent, BitArray), Nil) {
   //use #(topic_name, rest) <- result.try(try_read_compact_string(bytes))
   use #(partition_index, rest) <- result.try(read_i8(bytes))
   Ok(#(Cursor(partition_index:), rest))

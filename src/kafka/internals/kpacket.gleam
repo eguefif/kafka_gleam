@@ -1,29 +1,15 @@
 import gleam/list
 import gleam/result
+import kafka/internals/headers.{type Header, HeaderV0, HeaderV1}
 import kafka/primitives/array.{compact_array_to_bytes}
 import kafka/primitives/number.{encode_bool}
 import kafka/primitives/str.{compact_nullable_string_to_bytes, encode_uuidv4}
 
 // TODO: refactor the way I organize header and body. This should use more files
 // TODO: extract generic serialize function and name them write
-pub type KPacket {
+pub type Response {
   Request(size: Int, header: Header, body: Body)
   Response(header: Header, body: Body)
-}
-
-pub type Header {
-  HeaderV0(correlation_id: Int)
-  HeaderV1(correlation_id: Int, tag_buffer: Int)
-  HeaderV2(
-    request_api_key: Int,
-    request_api_version: Int,
-    correlation_id: Int,
-    client_id: String,
-    tagged_fields: Int,
-  )
-  Hv0
-  Hv1
-  Hv2
 }
 
 pub type Body {
