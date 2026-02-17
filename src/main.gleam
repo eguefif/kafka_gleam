@@ -7,8 +7,8 @@ import gleam/erlang/process
 import gleam/option.{None}
 import glisten.{Packet}
 
+import kafka/internals/create_response.{build_response}
 import kafka/internals/process_request.{process_request}
-import kafka/internals/response.{build_response}
 
 pub fn main() {
   io.println("Logs from your program will appear here!")

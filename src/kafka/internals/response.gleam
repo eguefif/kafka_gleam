@@ -1,118 +1,171 @@
-import gleam/bit_array
-import gleam/bytes_tree.{type BytesTree}
+import gleam/list
 import gleam/result
-import kafka/internals/headers.{
-  type Header, HeaderV0, HeaderV1, HeaderV2, Hv0, Hv1,
-}
-import kafka/internals/kpacket.{
-  type Body, type PacketComponent, ApiVersion, ApiVersionResponseV4,
-  DescribeTopicPartition, DescribeTopicResponseV0, ResponseError, ResponseTopic,
-}
-import kafka/internals/request.{
-  type RequestBody, type RequestComponent, type TRequest, DescribeTopicRequestV0,
-  Request, RequestTopic,
+import kafka/internals/headers.{type Header, HeaderV0, HeaderV1}
+import kafka/primitives/array.{compact_array_to_bytes}
+import kafka/primitives/number.{encode_bool}
+import kafka/primitives/str.{compact_nullable_string_to_bytes, encode_uuidv4}
+
+pub type Response {
+  Response(header: Header, body: ResponseBody)
 }
 
-// TODO: extract each API function into their own module. This module should be a dispatch
+pub type ResponseBody {
+  ApiVersionRequestV4(
+    client_software_name: String,
+    client_software_version: String,
+  )
+  ApiVersionResponseV4(api_keys: List(ApiKeys), throttle: Int, tag_buffer: Int)
 
-pub fn build_response(request: TRequest) -> Result(BytesTree, Nil) {
-  let Request(_, header, _) = request
-  case header {
-    HeaderV2(18, ..) -> {
-      get_api_version_response(request)
-    }
-    HeaderV2(75, ..) -> {
-      get_describe_topic_response(request)
-    }
-    _ -> Ok(get_not_implemented_api_key())
-  }
-}
-
-fn get_not_implemented_api_key() -> BytesTree {
-  bytes_tree.from_bit_array(<<>>)
-}
-
-pub fn get_api_version_response(request: TRequest) -> Result(BytesTree, Nil) {
-  let Request(_, request_header, _) = request
-  use header <- result.try(get_header(request_header, Hv0))
-  let body = get_body(request_header)
-  craft_bytes_response(header, body)
-}
-
-fn craft_bytes_response(header: Header, body: Body) -> Result(BytesTree, Nil) {
-  use response <- result.try(kpacket.to_bitarray(header, body))
-  let response_size = bit_array.byte_size(response)
-  Ok(bytes_tree.from_bit_array(<<response_size:size(32), response:bits>>))
-}
-
-fn get_header(
-  header: Header,
-  header_response_type: Header,
-) -> Result(Header, Nil) {
-  let assert HeaderV2(_, _, correlation_id, ..) = header
-  case header_response_type {
-    Hv0 -> Ok(HeaderV0(correlation_id:))
-    Hv1 -> Ok(HeaderV1(correlation_id:, tag_buffer: 0))
-    _ -> Error(Nil)
-  }
-}
-
-pub fn get_body(header: Header) {
-  let assert HeaderV2(_, request_api_version, ..) = header
-  case request_api_version {
-    0 | 1 | 2 | 3 | 4 -> {
-      get_body_api_key()
-    }
-    _ -> {
-      ResponseError(code: 35)
-    }
-  }
-}
-
-fn get_body_api_key() -> Body {
-  let api_keys = [
-    ApiVersion(start: 0, end: 4, tag_buffer: 0),
-    DescribeTopicPartition(start: 0, end: 0, tag_buffer: 0),
-  ]
-  ApiVersionResponseV4(api_keys:, throttle: 0, tag_buffer: 0)
-}
-
-fn get_describe_topic_response(request: TRequest) -> Result(BytesTree, Nil) {
-  let Request(_, header, body) = request
-  use header <- result.try(get_header(header, Hv1))
-  let body = get_describe_topic_body(body)
-  craft_bytes_response(header, body)
-}
-
-fn get_describe_topic_body(body: RequestBody) -> Body {
-  let assert DescribeTopicRequestV0(topics, ..) = body
+  DescribeTopicRequestV0(
+    topics: List(ResponseComponent),
+    response_partition_limit: Int,
+    cursor: ResponseComponent,
+    tagged_field: Int,
+  )
   DescribeTopicResponseV0(
-    throttle_time: 0,
-    topics: get_topics(topics),
-    next_cursor: 255,
-    tag_field: 0,
+    throttle_time: Int,
+    topics: List(ResponseComponent),
+    next_cursor: Int,
+    tag_field: Int,
   )
+
+  ResponseError(code: Int)
+  None
 }
 
-fn get_topics(topics: List(RequestComponent)) -> List(PacketComponent) {
-  case topics {
-    [first, ..rest] -> {
-      let response_topics = get_topics(rest)
-      [get_one_topic_response(first), ..response_topics]
+pub type ResponseComponent {
+  RequestTopic(tagged_field: Int, name: String)
+  ResponseTopic(
+    error_code: Int,
+    name: String,
+    topic_id: String,
+    is_internal: Bool,
+    partitions: Int,
+    topic_authorized_operations: Int,
+    tag_field: Int,
+  )
+  Partition(
+    error_code: Int,
+    parition_index: Int,
+    leader_id: Int,
+    leader_epoch: Int,
+    isr_nodes: Int,
+    eligible_leader_replicas: Int,
+    last_know_elr: Int,
+    offline_replicas: Int,
+  )
+  NextCursor(topic_name: String, partition_index: Int)
+  //Cursor(topic_name: String, partition_index: Int)
+  Cursor(partition_index: Int)
+}
+
+pub type ApiKeys {
+  ApiVersion(start: Int, end: Int, tag_buffer: Int)
+  DescribeTopicPartition(start: Int, end: Int, tag_buffer: Int)
+}
+
+pub fn to_bitarray(header: Header, body: ResponseBody) -> Result(BitArray, Nil) {
+  let header = header_to_bitarray(header)
+  use body <- result.try(body_to_bitarray(body))
+  Ok(<<header:bits, body:bits>>)
+}
+
+fn header_to_bitarray(header: Header) -> BitArray {
+  case header {
+    HeaderV0(correlation_id) -> <<correlation_id:int-big-size(32)>>
+    HeaderV1(correlation_id, tag_buffer) -> <<
+      correlation_id:int-big-size(32),
+      tag_buffer:int-big-size(8),
+    >>
+    _ -> {
+      <<>>
     }
-    [] -> []
   }
 }
 
-fn get_one_topic_response(topic: RequestComponent) -> PacketComponent {
-  let assert RequestTopic(_, name) = topic
-  ResponseTopic(
-    error_code: 3,
-    name:,
-    topic_id: "00000000-0000-0000-0000-000000000000",
-    is_internal: False,
-    partitions: 1,
-    topic_authorized_operations: 0,
-    tag_field: 0,
-  )
+fn body_to_bitarray(body: ResponseBody) -> Result(BitArray, Nil) {
+  case body {
+    ApiVersionResponseV4(api_keys, throttle, tag_buffer) ->
+      Ok(<<
+        0:int-big-size(16),
+        { list.length(api_keys) + 1 }:int-big-size(8),
+        api_keys_list_to_bitarray(api_keys):bits,
+        throttle:int-big-size(32),
+        tag_buffer:int-big-size(8),
+      >>)
+    DescribeTopicResponseV0(..) -> describe_topic_response_to_bytes(body)
+    ResponseError(code) -> Ok(<<code:int-big-size(16)>>)
+    _ -> Ok(<<>>)
+  }
+}
+
+fn api_keys_list_to_bitarray(api_keys: List(ApiKeys)) -> BitArray {
+  case api_keys {
+    [first, ..rest] -> <<
+      api_key_to_bitarray(first):bits,
+      api_keys_list_to_bitarray(rest):bits,
+    >>
+    [] -> <<>>
+  }
+}
+
+fn api_key_to_bitarray(api_key: ApiKeys) -> BitArray {
+  case api_key {
+    ApiVersion(start, end, tag_buffer) -> <<
+      18:16,
+      start:int-big-size(16),
+      end:int-big-size(16),
+      tag_buffer:int-big-size(8),
+    >>
+
+    DescribeTopicPartition(start, end, tag_buffer) -> <<
+      75:16,
+      start:int-big-size(16),
+      end:int-big-size(16),
+      tag_buffer:int-big-size(8),
+    >>
+  }
+}
+
+pub fn describe_topic_response_to_bytes(
+  response: ResponseBody,
+) -> Result(BitArray, Nil) {
+  let assert DescribeTopicResponseV0(
+    throttle_time,
+    topics,
+    next_cursor,
+    tag_field,
+  ) = response
+  let throttle_time = <<throttle_time:int-big-size(32)>>
+  use topics <- result.try(compact_array_to_bytes(
+    topics,
+    response_topic_to_bytes,
+  ))
+  let next_cursor = <<next_cursor:int-big-size(8)>>
+  let tag_field = <<tag_field:int-big-size(8)>>
+  Ok(<<throttle_time:bits, topics:bits, next_cursor:bits, tag_field:bits>>)
+}
+
+fn response_topic_to_bytes(topic: ResponseComponent) -> Result(BitArray, Nil) {
+  let assert ResponseTopic(
+    error_code,
+    name,
+    topic_id,
+    is_internal,
+    partitions,
+    topic_authorized_operations,
+    tag_field,
+  ) = topic
+
+  use topic_id <- result.try(encode_uuidv4(topic_id))
+  use topic_name <- result.try(compact_nullable_string_to_bytes(name))
+  Ok(<<
+    error_code:int-big-size(16),
+    topic_name:bits,
+    topic_id:bits,
+    encode_bool(is_internal):bits,
+    partitions:int-big-size(8),
+    topic_authorized_operations:int-big-size(32),
+    tag_field:int-big-size(8),
+  >>)
 }
