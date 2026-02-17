@@ -1,9 +1,10 @@
 import gleam/bit_array
 import gleam/string
 import gleeunit
-import internals/read_bytes.{
-  compact_nullable_string_to_bytes, encode_varint, read_varint,
-  try_read_compact_string, try_read_nullable_string,
+
+import kafka/primitives/number.{encode_varint, read_varint}
+import kafka/primitives/str.{
+  compact_nullable_string_to_bytes, read_compact_string, read_nullable_string,
 }
 
 pub fn main() {
@@ -38,7 +39,7 @@ pub fn read_varint_2_byte_with_remaining_test() {
 pub fn read_compact_string_test() {
   let size = 0b0000_1101
   let assert Ok(#(str, _)) =
-    try_read_compact_string(<<
+    read_compact_string(<<
       size:8,
       bit_array.from_string("Hello, World"):bits,
     >>)
@@ -50,7 +51,7 @@ pub fn read_nullable_string_test() {
   let size = 0b00000000_0000_1100
 
   let assert Ok(#(str, _)) =
-    try_read_nullable_string(<<
+    read_nullable_string(<<
       size:16,
       bit_array.from_string("Hello, World"):bits,
     >>)
@@ -72,7 +73,7 @@ pub fn encode_decode_varint2_test() {
 
 pub fn encode_decode_compact_string_test() {
   let assert Ok(result) = compact_nullable_string_to_bytes("Hello, World")
-  let assert Ok(#(result, _)) = try_read_compact_string(result)
+  let assert Ok(#(result, _)) = read_compact_string(result)
 
   assert result == "Hello, World"
 }
@@ -80,14 +81,14 @@ pub fn encode_decode_compact_string_test() {
 pub fn encode_decode_compact_string_bit_string_test() {
   let big_string = string.pad_end("Hey, ", 10_000, " you ")
   let assert Ok(result) = compact_nullable_string_to_bytes(big_string)
-  let assert Ok(#(result, _)) = try_read_compact_string(result)
+  let assert Ok(#(result, _)) = read_compact_string(result)
 
   assert result == big_string
 }
 
 pub fn encode_decode_compact_string_empty_string_test() {
   let assert Ok(result) = compact_nullable_string_to_bytes("")
-  let assert Ok(#(result, _)) = try_read_compact_string(result)
+  let assert Ok(#(result, _)) = read_compact_string(result)
 
   assert result == ""
 }

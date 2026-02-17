@@ -7,11 +7,8 @@ import gleam/erlang/process
 import gleam/option.{None}
 import glisten.{Packet}
 
-import internals/process_request.{process_request}
-import internals/response.{build_response}
-
-// TODO: refactor structure.
-// Put bytes read and write primites in a module with documentation
+import kafka/internals/process_request.{process_request}
+import kafka/internals/response.{build_response}
 
 pub fn main() {
   io.println("Logs from your program will appear here!")

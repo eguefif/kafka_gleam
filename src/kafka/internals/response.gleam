@@ -1,7 +1,7 @@
 import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
 import gleam/result
-import internals/kpacket.{
+import kafka/internals/kpacket.{
   type Body, type Header, type KPacket, type PacketComponent, ApiVersion,
   ApiVersionResponseV4, DescribeTopicPartition, DescribeTopicRequestV0,
   DescribeTopicResponseV0, HeaderV0, HeaderV1, HeaderV2, Hv0, Hv1, Request,

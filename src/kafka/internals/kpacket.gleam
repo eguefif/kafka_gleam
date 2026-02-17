@@ -1,8 +1,8 @@
 import gleam/list
 import gleam/result
-import internals/read_bytes.{
-  compact_array_to_bytes, compact_nullable_string_to_bytes,
-}
+import kafka/primitives/array.{compact_array_to_bytes}
+import kafka/primitives/number.{encode_bool}
+import kafka/primitives/str.{compact_nullable_string_to_bytes, encode_uuidv4}
 
 // TODO: refactor the way I organize header and body. This should use more files
 // TODO: extract generic serialize function and name them write
@@ -183,16 +183,4 @@ fn response_topic_to_bytes(topic: PacketComponent) -> Result(BitArray, Nil) {
     topic_authorized_operations:int-big-size(32),
     tag_field:int-big-size(8),
   >>)
-}
-
-fn encode_bool(bool: Bool) -> BitArray {
-  case bool {
-    True -> <<1:size(8)>>
-    False -> <<0:size(8)>>
-  }
-}
-
-fn encode_uuidv4(_topic_id: String) -> Result(BitArray, Nil) {
-  // TODO: Impl uuidv4 encoding
-  Ok(<<0:size({ 16 * 8 })>>)
 }
