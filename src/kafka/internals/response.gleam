@@ -1,3 +1,5 @@
+import gleam/bit_array
+import gleam/bytes_tree.{type BytesTree}
 import gleam/list
 import gleam/result
 import kafka/internals/headers.{type Header, HeaderV0, HeaderV1}
@@ -7,6 +9,15 @@ import kafka/primitives/str.{compact_nullable_string_to_bytes, encode_uuidv4}
 
 pub type Response {
   Response(header: Header, body: ResponseBody)
+}
+
+pub fn craft_bytes_response(
+  header: Header,
+  body: ResponseBody,
+) -> Result(BytesTree, Nil) {
+  use response <- result.try(to_bitarray(header, body))
+  let response_size = bit_array.byte_size(response)
+  Ok(bytes_tree.from_bit_array(<<response_size:size(32), response:bits>>))
 }
 
 pub type ResponseBody {

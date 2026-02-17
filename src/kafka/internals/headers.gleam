@@ -12,3 +12,15 @@ pub type Header {
   Hv1
   Hv2
 }
+
+pub fn get_header(
+  header: Header,
+  header_response_type: Header,
+) -> Result(Header, Nil) {
+  let assert HeaderV2(_, _, correlation_id, ..) = header
+  case header_response_type {
+    Hv0 -> Ok(HeaderV0(correlation_id:))
+    Hv1 -> Ok(HeaderV1(correlation_id:, tag_buffer: 0))
+    _ -> Error(Nil)
+  }
+}
