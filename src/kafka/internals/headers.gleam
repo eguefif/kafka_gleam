@@ -1,3 +1,5 @@
+//// This module contains type and associated utility functions
+
 pub type Header {
   HeaderV0(correlation_id: Int)
   HeaderV1(correlation_id: Int, tag_buffer: Int)

@@ -1,3 +1,7 @@
+//// This module create the response
+//// It read the RequestHeader to dispatch the request to apis handler.
+//// Each api's handlers have their own modules.
+
 import gleam/bytes_tree.{type BytesTree}
 import kafka/internals/headers.{HeaderV2}
 import kafka/internals/request.{type TRequest, Request}

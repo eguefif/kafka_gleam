@@ -1,3 +1,7 @@
+//// Api key handlers
+//// This api is used by the client to learn about all the api and their versions
+//// that the server provides
+
 import gleam/bytes_tree.{type BytesTree}
 import gleam/result
 import kafka/internals/headers.{type Header, HeaderV2, Hv0, get_header}

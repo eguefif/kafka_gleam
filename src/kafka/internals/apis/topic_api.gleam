@@ -1,3 +1,5 @@
+//// Topic response handler
+
 import gleam/bytes_tree.{type BytesTree}
 import gleam/result
 import kafka/internals/headers.{Hv1, get_header}

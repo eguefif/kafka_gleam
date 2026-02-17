@@ -1,3 +1,5 @@
+//// This module contains all the Request type and records
+
 import kafka/internals/headers.{type Header}
 
 pub type TRequest {

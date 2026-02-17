@@ -1,3 +1,8 @@
+//// Request module entry point.
+//// This module provides on public function: process_request
+//// It uses the headers and the request_body modules to parse the request
+//// and create the Request record that will be used by create_response
+
 import gleam/result
 import kafka/internals/headers.{type Header, HeaderV2}
 

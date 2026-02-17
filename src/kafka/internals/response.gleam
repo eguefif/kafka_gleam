@@ -1,3 +1,5 @@
+//// This module contains all the Response related type and record along with their bytes encoding functions
+
 import gleam/bit_array
 import gleam/bytes_tree.{type BytesTree}
 import gleam/list
